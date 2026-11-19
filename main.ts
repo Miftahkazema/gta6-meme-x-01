@@ -18,15 +18,34 @@
 //
 // Local check: mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const botDir = process.env.MAKEFUN_BOT_DIR ?? '/bot';
 const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
 mkdirSync(outDir, { recursive: true });
+const src = join(botDir, 'POST.json');
+let raw: string;
 try {
-  copyFileSync(join(botDir, 'POST.json'), join(outDir, 'POST.json'));
+  raw = readFileSync(src, 'utf8');
+} catch (err) {
+  console.error(`POST.json could not be read from ${botDir}: ${(err as Error).message}`);
+  process.exit(1);
+}
+let post: unknown;
+try {
+  post = JSON.parse(raw);
+} catch (err) {
+  console.error(`POST.json is not valid JSON: ${(err as Error).message}`);
+  process.exit(1);
+}
+if (typeof post !== 'object' || post === null || typeof (post as { url?: unknown }).url !== 'string' || (post as { url: string }).url.trim() === '') {
+  console.error('POST.json must contain a non-empty string "url" field naming the X post.');
+  process.exit(1);
+}
+try {
+  copyFileSync(src, join(outDir, 'POST.json'));
 } catch (err) {
   console.error(`POST.json could not be copied from ${botDir}: ${(err as Error).message}`);
   process.exit(1);
